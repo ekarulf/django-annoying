@@ -30,6 +30,12 @@ def render_to(template=None, mimetype="text/html"):
     Template name can be decorator parameter or TEMPLATE item in returned 
     dictionary.  RequestContext always added as context instance.
     If view doesn't return dict then decorator simply returns output.
+    
+    The decorated function will take the following optional keyword arguments, that can be used
+    in URL configurations, and is in conformance with Django Reusable App conventions
+    (http://ericholscher.com/projects/reusable-app-docs/apps/views.html):
+     - template_name: If supplied, it will override the template given as argument to render_to
+     - extra_context: Optional dict that will, if supplied, extend the template context
 
     Parameters:
      - template: template name to use
@@ -71,12 +77,18 @@ def render_to(template=None, mimetype="text/html"):
     def renderer(function):
         @wraps(function)
         def wrapper(request, *args, **kwargs):
+            kwargs_template = kwargs.pop("template_name", None)
+            kwargs_extra_context = kwargs.pop("extra_context", None)
+            
             output = function(request, *args, **kwargs)
             if not isinstance(output, dict):
                 return output
-            tmpl = output.pop('TEMPLATE', template)
-            return render_to_response(tmpl, output, \
-                        context_instance=RequestContext(request), mimetype=mimetype)
+            tmpl = output.pop('TEMPLATE', kwargs_template or template)
+            
+            if kwargs_extra_context is not None:
+                output.update(kwargs_extra_context)
+            
+            return render_to_response(tmpl, output, context_instance=RequestContext(request), mimetype=mimetype)
         return wrapper
     return renderer
 
